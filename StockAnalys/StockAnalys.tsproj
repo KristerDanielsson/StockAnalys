@@ -1126,14 +1126,32 @@
 	<ImageDatas>
 		<ImageData Id="1000">424d360300000000000036000000280000001000000010000000010018000000000000000000c40e0000c40e00000000000000000000554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3be1d7d1e1d7d1e1d7d1e1d7d1e1d7d1e1d7d1e1d7d1dfd6cfdfd6cfdfd6cfdfd6cfdfd6cfdfd6cfdfd6cf554f3b554f3be3dbd4e3dbd4554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3bdfd6cfdfd6cf554f3b554f3be3dbd4e3dbd4554f3bc1b39ac1b399c0b299bfb097beae94bbac90b8a88cb7a488554f3bdfd6cfdfd6cf554f3b554f3bece4dfece4df554f3bc6b9a3c6b8a2c5b7a0c4b59fc2b49bbfb197bdae92baaa8d554f3bdfd6cfdfd6cf554f3b554f3bece4dfece4df554f3bcbbfaacbbeaac9bda9c9bba5c6b8a2c3b59ec0b298bdae93554f3bdfd6cfdfd6cf554f3b554f3bece4dfece4df554f3bcfc6b1d0c4b1cec3afcdc1adcabea8c7baa5c4b69ec0b298554f3be1d7d1dfd6cf554f3b554f3beee6e1eee6e1554f3bd4cabad4cabad2c9b6d1c6b3cec3afcabfa9c8baa4c4b59e554f3be1d7d1dfd6cf554f3b554f3bf2ebe7f2ebe7554f3b554f3b554f3bd7cfbed4cbbad2c7b4cec2af554f3b554f3b554f3be3dbd4e1d7d1554f3b554f3bf2ebe7f2ebe7f5eeebf2ebe7554f3bdad4c4d8cfbfd4cabad0c6b3554f3be7ded9e3dbd4e3dbd4e1d7d1554f3b554f3bf5eeebf5eeebf5eeebf5eeeb554f3bded8cbdad3c4d7cdbdd2c8b6554f3bece4dfe3dbd4e3dbd4e1d7d1554f3b554f3bf5eeebf5eeeb554f3b554f3b554f3be1dbcfdcd6c7d8cfbfd3c9b8554f3b554f3b554f3be3dbd4e1d7d1554f3b554f3bf5eeebf7f0ed554f3be8e3dbe5e1d7e1dbcfddd5c8d8cfbfd3cab7cec4b0c9bda8554f3be3dbd4e1d7d1554f3b554f3bf5eeebf5eeeb554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3be3dbd4e1d7d1554f3b554f3bf5eeebf5eeebf5eeebf5eeebf5eeebf2ebe7f2ebe7eee6e1ece4dfece4dfece4dfe3dbd4e3dbd4e1d7d1554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b554f3b</ImageData>
 	</ImageDatas>
-	<Project ProjectGUID="{364E33FB-CD9A-4EBA-AF11-15C1EC22D7B3}" Target64Bit="true" ShowHideConfigurations="#x6">
+	<Project ProjectGUID="{364E33FB-CD9A-4EBA-AF11-15C1EC22D7B3}" TargetNetId="10.43.2.68.1.1" Target64Bit="true" ShowHideConfigurations="#x6">
 		<System>
+			<Settings MaxCpus="4" NonWinCpus="3" RouterMemory="1073741824">
+				<Cpu/>
+				<Cpu CpuId="1"/>
+				<Cpu CpuId="2"/>
+				<Cpu CpuId="3"/>
+			</Settings>
 			<Tasks>
-				<Task Id="3" Priority="20" CycleTime="100000" AmsPort="350" AdtTasks="true">
+				<Task Id="3" Priority="20" CycleTime="1000000" AmsPort="350" ExceedWarning="2" WatchdogStackCapacity="10" AdtTasks="true">
 					<Name>PlcTask</Name>
 				</Task>
 				<Task Id="4" Priority="5" CycleTime="100000" AmsPort="351" AdtTasks="true">
 					<Name>VnTask ImgAcq (FileSource1)</Name>
+				</Task>
+				<Task Id="5" Priority="1" Affinity="#x00000004" AdtTasks="true" JobTask="true">
+					<Name>JobTask1</Name>
+					<ImageId>327</ImageId>
+				</Task>
+				<Task Id="6" Priority="2" Affinity="#x00000008" AdtTasks="true" JobTask="true">
+					<Name>JobTask2</Name>
+					<ImageId>327</ImageId>
+				</Task>
+				<Task Id="7" Priority="3" Affinity="#x00000002" AdtTasks="true" JobTask="true">
+					<Name>JobTask3</Name>
+					<ImageId>327</ImageId>
 				</Task>
 			</Tasks>
 		</System>
@@ -1163,13 +1181,13 @@
 						</Interface>
 					</Interfaces>
 					<Parameters>
-						<Parameter>
+						<Parameter ShowSubItems="true">
 							<Name>JobTasks</Name>
-							<BitSize>32</BitSize>
+							<BitSize>96</BitSize>
 							<BaseType GUID="{DB6B59A0-4FB0-4B14-A83C-AC7A76AD688D}">JobTaskId</BaseType>
 							<ArrayInfo>
 								<LBound>0</LBound>
-								<Elements Min="0" Max="64">1</Elements>
+								<Elements Min="0" Max="64">3</Elements>
 							</ArrayInfo>
 							<PTCID>#x08508041</PTCID>
 							<ContextId>1</ContextId>
@@ -1185,7 +1203,15 @@
 					<ParameterValues>
 						<Value>
 							<Name>JobTasks[0]</Name>
-							<Value>0</Value>
+							<Value>33620048</Value>
+						</Value>
+						<Value>
+							<Name>JobTasks[1]</Name>
+							<Value>33620064</Value>
+						</Value>
+						<Value>
+							<Name>JobTasks[2]</Name>
+							<Value>33620080</Value>
 						</Value>
 						<Value>
 							<Name>PoolId</Name>
@@ -1198,6 +1224,18 @@
 				<Name>Application1</Name>
 				<FileSource Id="1" VisionObjectGUID="{021A0395-3319-49F8-86C5-54F5B4E2451C}">
 					<Name>FileSource1</Name>
+					<Xml>
+						<TcSmExtensions>
+							<TcSmExtension Guid="{0C5845FB-E311-440A-93A1-F7B04CFC9860}">
+								<Settings>
+									<FileSource>
+										<CycleTime Type="System.Single">10</CycleTime>
+										<TriggerMode Type="System.Boolean">False</TriggerMode>
+									</FileSource>
+								</Settings>
+							</TcSmExtension>
+						</TcSmExtensions>
+					</Xml>
 					<Module Id="#x01010020" KeepUnrestoredLinks="2" ClassFactoryId="Beckhoff Automation GmbH|TcVision|4.0.4.8" TcSmClass="CTComVisionObjDef">
 						<Name>FileSource1 Image Acquisition (CTcIoFileImageAcquisition)</Name>
 						<ImageId>1000</ImageId>
@@ -1298,7 +1336,7 @@
 								</Value>
 								<Value>
 									<Name>CycleTime</Name>
-									<Value>10</Value>
+									<Value>20</Value>
 								</Value>
 								<Value>
 									<Name>TriggerMode</Name>
@@ -1306,7 +1344,7 @@
 								</Value>
 								<Value>
 									<Name>BaseDir</Name>
-									<String></String>
+									<String>C:\Users\Public\TcVision\FileSources\6P82R5BG</String>
 								</Value>
 								<Value>
 									<Name>ServiceTimeout</Name>

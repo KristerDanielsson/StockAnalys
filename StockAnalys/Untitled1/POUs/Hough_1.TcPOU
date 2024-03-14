@@ -1,0 +1,144 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="Hough_1" Id="{ed7bbcf0-4daa-4567-a9ce-ae71890325de}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK Hough_1
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	//Camera or file source
+	hr: HRESULT;
+	fbCamera: FB_VN_SimpleCameraControl;
+	eState: ETcVnCameraState;
+
+//Images for realtime work
+	ipImageIn: ITcVnImage;
+	ipImageGrey: ITcVnImage;
+	ipCanny:ITcVnImage;
+	
+// Watchdog
+	hrWD 					:	HRESULT;
+	tWDStop					:	DINT := 100000;	(* Stop time in us *)
+	tRest 					:	DINT;
+	nFunctionsMonitored		:	ULINT;
+	nFractionProcessed 		:	UDINT;	
+	tDuration 				:	DINT;
+	
+// Gaussian Filter	//iipImageSmoothed	:	ITcVnImage;
+	ipImageSmoothedDisp	:	ITcVnDisplayableImage;
+	ipImageSmoothed		:	ITcVnImage;
+	nFilterWidth	:	UDINT	:=	7;
+	nFilterHeight	:	UDINT	:=	7;
+
+//Displayable images (for ADS Image watch and TwinCAT HMI
+	ipImageInDisp: ITcVnDisplayableImage;
+	ipImageGreyDisp:	ITcVnDisplayableImage;
+	ipCannyDisp:	ITcVnDisplayableImage;
+
+//Hough Circles algorithm
+	ipCircles: ITcVnContainer;
+	fInvAccuRatio: LREAL:= 2;
+	fMinDist: LREAL:= 1000;
+	eHoughMethod  : ETcVnHoughMethod:=TCVN_HM_GRADIENT ;
+    fParam1       : LREAL:=  200;
+    fParam2 : LREAL:=100;
+    nMinRadius    : UDINT:=300;
+    nMaxRadius    : UDINT:=400;
+	
+//Loop to interate through found circles
+	ipIteratorCircles: 	ITcVnForwardIterator;	
+	nCircles: ULINT;
+	iCircle: ULINT;
+	currentCircle: TcVnVector3_REAL;
+
+//Draw
+	aColorRed	: TcVnVector4_LREAL:= [255,0,0,0];
+	aColorBlue	: TcVnVector4_LREAL:= [0,0,255,0];	
+
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[eState:= fbCamera.GetState();
+
+IF eState = TCVN_CS_ERROR THEN
+	hr:= fbCamera.Reset();
+	
+ELSIF eState<TCVN_CS_ACQUIRING THEN
+	hr:= fbCamera.StartAcquisition();
+	
+ELSIF eState= TCVN_CS_ACQUIRING THEN
+	
+	//Get the image from camera. Or in this case a file source
+	// Step 1 - Import image
+	hr:= fbCamera.GetCurrentImage(ipImageIn);
+	
+	IF SUCCEEDED(hr) AND ipImageIn <> 0 THEN
+	
+	//Colour to Grey image	
+		hr:= F_VN_ConvertColorSpace(ipImageIn, ipImageGrey, TCVN_CST_RGB_TO_GRAY, hr);
+		
+		//Start watchdog to limit the time allowed for the functions below. 
+		hrWD := F_VN_StartRelWatchdog(tWDStop, hr);
+	
+	//Filter image smooth. Otherwise there will be a lot of false circles found
+	hr:= F_VN_GaussianFilter(ipImageGrey, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
+
+	//Call the Method Canny just for demonstration purposes to see what is output from the Canny Edge detector that is otherwise built in to the HoughCirclesExp
+	hr:=Canny(ipImageSmoothed,ipCanny,ipCannyDisp, hr);
+	
+	//Find circles in image based on Hough Transform algorithm. This algorith finds the radius(r) plus the x and y coordinates of the center point. 
+	//Since all three are considered to be unknown parameters, the circle edge direction (GRADIENT) is used to make the algorithm more efficient and minimise the numbers of guesses in the accumulator matrix.  
+	//F_VN_HoughCirclesExp has a built in Canny Edge detector algorithm and takes a smoothed greyscale image as input
+	//fParam1,fParam2 are the upper and lower treshold for the Canny Edge detector and define what is considered to be an edge. 
+	//Over the upper is and edge. Under the lower is not. In between is an edge if a neighboruing pixel is and edge.
+	//For more information about how a Hough Circles or Hough Line algorithm works. Search the internet for example "Hough Circles" for a theoretical explanation or "OpenCV HoughCircles" for the code functionality. 
+	//For more information on how a Canny edge detector works. Search the terms "Canny edge detector"
+	hr:=F_VN_HoughCirclesExp(ipImageSmoothed,ipCircles,fInvAccuRatio, fMinDist,eHoughMethod, fParam1,fParam2, nMinRadius, nMaxRadius, hr);
+	
+	hr:=  hr := F_VN_GetNumberOfElements(ipCircles, nCircles, hr);
+	
+	//Get interator to iterate through found circles hold by the container that the pointer ipCircles point at
+	hr := F_VN_GetForwardIterator(ipCircles,ipIteratorCircles,hr);
+
+	//Get the circles radius, x and y - And draw the result in the coloured imageIn
+IF SUCCEEDED(hr) AND nCircles>0 THEN
+	FOR iCircle:=0 TO nCircles-1 DO
+		F_VN_GetAt_TcVnVector3_REAL(ipCircles,currentCircle, iCircle,hr);  
+		hr:= F_VN_DrawCircle(REAL_TO_UDINT(currentCircle[0]),REAL_TO_UDINT(currentCircle[1]), REAL_TO_UDINT(currentCircle[2]), ipImageIn,aColorRed,2, hr);
+		hr:= F_VN_DrawPointExp(REAL_TO_UDINT(currentCircle[0]),REAL_TO_UDINT(currentCircle[1]), ipImageIn,1,aColorBlue,10,2,1,hr);
+		hr:= F_VN_IncrementIterator(ipIteratorCircles,hr);
+	END_FOR
+END_IF				
+		//Stop watchdog to limit the time allowed for the functions above. 
+		hrWD := F_VN_StopWatchdog(hrWD, nFunctionsMonitored => nFunctionsMonitored, nFractionProcessed => nFractionProcessed, tRest => tRest);
+		
+		// Calculate the required time
+ 		tDuration := tWDStop - tRest;
+	
+	//Create images to display for the different processing steps
+		hr:= F_VN_CopyIntoDisplayableImage(ipImageIn, ipImageInDisp, hr);   //The result is also drawn in to this image
+		hr:= F_VN_CopyIntoDisplayableImage(ipImageGrey, ipImageGreyDisp, hr); 
+		hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr);  
+	
+	END_IF
+	
+END_IF]]></ST>
+    </Implementation>
+    <Method Name="Canny" Id="{a007597b-113f-43b4-b07a-e504d3b8136f}">
+      <Declaration><![CDATA[METHOD Canny : HRESULT
+VAR_INPUT
+	ipImageToSearchForEdges: REFERENCE TO ITcVnImage;
+	ipImageResultWithEdges: REFERENCE TO ITcVnImage;
+	ipImageResultWithEdgesDisp: REFERENCE TO ITcVnDisplayableImage;
+	hr: REFERENCE TO HRESULT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[hr:= F_VN_CannyEdgeDetection(ipImageToSearchForEdges,ipImageResultWithEdges,100, 200, hr);
+
+hr:= F_VN_CopyIntoDisplayableImage(ipImageResultWithEdges, ipImageResultWithEdgesDisp, hr);  //saädfkaöläsfaf]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
