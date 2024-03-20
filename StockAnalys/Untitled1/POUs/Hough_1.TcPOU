@@ -3,14 +3,15 @@
   <POU Name="Hough_1" Id="{ed7bbcf0-4daa-4567-a9ce-ae71890325de}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK Hough_1
 VAR_INPUT
+		//Camera or file source
+	hr: REFERENCE TO HRESULT;
+	fbCamera: REFERENCE TO FB_VN_SimpleCameraControl;
+	eState: REFERENCE TO ETcVnCameraState;
 END_VAR
 VAR_OUTPUT
 END_VAR
 VAR
-	//Camera or file source
-	hr: HRESULT;
-	fbCamera: FB_VN_SimpleCameraControl;
-	eState: ETcVnCameraState;
+
 
 //Images for realtime work
 	ipImageIn: ITcVnImage;

@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FindContoursByColour" Id="{a5fbb55b-d736-4c52-9772-9c5c3bf26232}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FindContoursByColour
+VAR_INPUT
+			//Camera or file source
+	hr: REFERENCE TO HRESULT;
+	fbCamera: REFERENCE TO FB_VN_SimpleCameraControl;
+	eState: REFERENCE TO ETcVnCameraState;
+	
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+
+//Images for realtime work
+	ipImageIn: ITcVnImage;
+	ipImageGrey: ITcVnImage;
+	ipImageBinary: ITcVnImage;
+
+	
+// Watchdog
+	hrWD 					:	HRESULT;
+	tWDStop					:	DINT := 120000;	(* Stop time in us *)
+	tRest 					:	DINT;
+	nFunctionsMonitored		:	ULINT;
+	nFractionProcessed 		:	UDINT;	
+	tDuration 				:	DINT;
+	
+// Gaussian Filter	//
+
+	ipImageSmoothed	:	ITcVnImage;
+	ipImageSmoothedDisp	:	ITcVnDisplayableImage;
+	nFilterWidth	:	UDINT	:=	51;
+	nFilterHeight	:	UDINT	:=	51;
+
+
+	
+//Displayable images (for ADS Image watch and TwinCAT HMI
+	ipImageInDisp: ITcVnDisplayableImage;
+	ipImageGreyDisp:	ITcVnDisplayableImage;
+	ipImageBinaryDisp: ITcVnDisplayableImage;
+	
+//Colourlimits Upper/Lower RGB-values
+	aColorHi	: TcVnVector4_LREAL:= [255,200,110];
+	aColorLow	: TcVnVector4_LREAL:= [200,0,0];
+	
+//Create Structuring element for the Closing operation
+ipStructuringElement: ITcVnImage;
+eShape: ETcVnStructuringElementShape :=TCVN_SES_RECTANGLE;
+
+eOperator: ETcVnMorphologicalOperator:=TCVN_MO_CLOSING;
+
+
+ipContourList: 	ITCVnContainer;
+	ipIterator: 	ITcVnForwardIterator;
+	ipContour:		ITcVnContainer;
+	fArea:				LREAL;
+	fCurrentArea: LREAL:=5000;
+	antalKonturer: ULINT;	
+		aCenter:		TcVnPoint2_LREAL;
+
+//Draw
+	aColorRed	: TcVnVector4_LREAL:= [255,0,0,0];
+	aColorBlue	: TcVnVector4_LREAL:= [0,0,255,0];	
+
+	nisse: INT;
+	sArea: STRING;
+	nArea: ULINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[eState:= fbCamera.GetState();
+
+IF eState = TCVN_CS_ERROR THEN
+	hr:= fbCamera.Reset();
+	
+ELSIF eState<TCVN_CS_ACQUIRING THEN
+	hr:= fbCamera.StartAcquisition();
+	
+ELSIF eState= TCVN_CS_ACQUIRING THEN
+	
+	//Get the image from camera. Or in this case a file source
+	// Step 1 - Import image
+	hr:= fbCamera.GetCurrentImage(ipImageIn);
+	
+	IF SUCCEEDED(hr) AND ipImageIn <> 0 THEN
+
+
+	
+	
+	
+//Start watchdog to limit the time allowed for the functions below. 
+hrWD := F_VN_StartRelWatchdog(tWDStop, hr);
+
+//Filter image smooth. Otherwise there will be a lot of false circles found
+	hr:= F_VN_GaussianFilter(ipImageIn, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
+	
+hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr); 
+
+		hr:= F_VN_CheckColorRange(ipImageSmoothed, ipImageBinary, aColorLow, aColorHi, hr);
+			hr:= F_VN_CreateStructuringElement(ipStructuringElement,eShape, 25, 25, hr);		
+			hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, eOperator,ipStructuringElement, hr);
+			//hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
+			hr:=F_VN_FindContours(ipImageBinary, ipContourList, hr);
+
+			hr:= F_VN_GetNumberOfElements(ipContourList,antalKonturer,hr);
+		
+		hr:= F_VN_GetForwardIterator(ipContourList, ipIterator, hr);  //Create iterator
+		
+		//Loop through every contour with the iterator
+		WHILE SUCCEEDED(hr) AND_THEN ipIterator.CheckIfEnd() <> S_OK DO
+			hr:= F_VN_GetContainer(ipIterator, ipContour, hr);
+			hr:= F_VN_IncrementIterator(ipIterator, hr);
+
+ 			
+
+			//Sort out only large elements
+			hr:= F_VN_ContourArea(ipContour, fArea, hr);
+				IF fArea > fCurrentArea THEN
+					nisse:=nisse+1;
+					nArea:=LREAL_TO_ULINT(fArea);
+					
+					sArea:=CONCAT(CONCAT('Area: ',ULINT_TO_STRING(nArea)),' pixels');
+								hr:= F_VN_DrawContours(ipContour, -1, ipImageIn, aColorRed, 3, hr);
+										hr:= F_VN_ContourCenterOfMass(ipContour, aCenter, hr);
+										hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(aCenter[0])-400,LREAL_TO_UDINT(aCenter[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 4, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
+										//LREAL_TO_STRING(fArea)
+				END_IF
+
+
+				
+		END_WHILE
+				
+//Stop watchdog to limit the time allowed for the functions above. 
+hrWD := F_VN_StopWatchdog(hrWD, nFunctionsMonitored => nFunctionsMonitored, nFractionProcessed => nFractionProcessed, tRest => tRest);
+
+hr:= F_VN_CopyIntoDisplayableImage(ipImageBinary, ipImageBinaryDisp, hr);
+	hr:= F_VN_CopyIntoDisplayableImage(ipImageIn, ipImageInDisp, hr); 
+
+END_IF
+END_IF]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

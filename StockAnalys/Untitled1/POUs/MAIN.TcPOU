@@ -3,11 +3,19 @@
   <POU Name="MAIN" Id="{e11e88b4-816c-43c1-b5d0-c1882815007f}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM MAIN
 VAR
+	//Camera or file source
+	hr: HRESULT;
+	fbCamera: FB_VN_SimpleCameraControl;
+	eState: ETcVnCameraState;	
+
 	Hough: Hough_1();
+	FindContoursByColour: FindContoursByColour();
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[Hough();
+      <ST><![CDATA[//Hough(hr:=hr, fbCamera:=fbCamera, eState:=eState);
+FindContoursByColour(hr:=hr, fbCamera:=fbCamera, eState:=eState);
+
 ]]></ST>
     </Implementation>
   </POU>

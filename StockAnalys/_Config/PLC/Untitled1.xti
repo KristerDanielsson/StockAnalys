@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <TcSmItem xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4024.53" ClassName="CNestedPlcProjDef">
 	<Project GUID="{40E6EFEB-C4E2-499E-AEF5-BAF24BD0E107}" Name="Untitled1" PrjFilePath="..\..\Untitled1\Untitled1.plcproj" TmcFilePath="..\..\Untitled1\Untitled1.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-		<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcPath="Untitled1\Untitled1.tmc" TmcHash="{7CFB741E-7F23-2CB0-32EE-D969B23B051C}">
+		<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcPath="Untitled1\Untitled1.tmc" TmcHash="{760EBF37-CD6E-B0D1-4F1F-631A9D649F45}">
 			<Name>Untitled1 Instance</Name>
 			<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 			<Contexts>
@@ -12,12 +12,12 @@
 						<OTCID>#x02010030</OTCID>
 					</ManualConfig>
 					<Priority>20</Priority>
-					<CycleTime>100000000</CycleTime>
+					<CycleTime>150000000</CycleTime>
 				</Context>
 			</Contexts>
 			<InitSymbols>
 				<InitSymbol>
-					<Name>MAIN.Hough.fbCamera.oidITcVnImageProvider</Name>
+					<Name>MAIN.fbCamera.oidITcVnImageProvider</Name>
 					<Type GUID="{18071995-0000-0000-0000-00000000000F}">OTCID</Type>
 					<Comment><![CDATA[ Internal reference to the corresponding TcVnImageProvider TcCOM module ID, which needs to be set via TC init symbol. ]]></Comment>
 					<AreaNo>#x00000003</AreaNo>

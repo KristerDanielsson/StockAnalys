@@ -21,6 +21,9 @@
     <Compile Include="PlcTask.TcTTO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FindContoursByColour.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Hough_1.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -49,6 +52,7 @@
     </PlaceholderReference>
     <PlaceholderReference Include="Tc3_Vision">
       <DefaultResolution>Tc3_Vision, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc3_Vision</Namespace>
     </PlaceholderReference>
   </ItemGroup>
   <ItemGroup>
