@@ -18,6 +18,9 @@ VAR
 	ipImageGrey: ITcVnImage;
 	ipImageBinary: ITcVnImage;
 
+//Region Of Interest
+stRoi: TcVnRectangle_UDINT;	
+	
 	
 // Watchdog
 	hrWD 					:	HRESULT;
@@ -33,6 +36,17 @@ VAR
 	ipImageSmoothedDisp	:	ITcVnDisplayableImage;
 	nFilterWidth	:	UDINT	:=	51;
 	nFilterHeight	:	UDINT	:=	51;
+	nImageChannels: UINT;
+	
+//Split image channels	
+pDestImages: ARRAY[0..3] OF ITcVnImage;
+pDestImagesDisp:ARRAY[0..3] OF ITcVnDisplayableImage;
+nArraySize: UINT;
+	
+//Find value range
+aMaxValue:ARRAY[0..2] OF TcVnVector4_LREAL;
+aMinValue:ARRAY[0..2] OF TcVnVector4_LREAL;
+aPosition: TcVnPoint2_DINT;
 
 
 	
@@ -44,6 +58,7 @@ VAR
 //Colourlimits Upper/Lower RGB-values
 	aColorHi	: TcVnVector4_LREAL:= [255,200,110];
 	aColorLow	: TcVnVector4_LREAL:= [200,0,0];
+	eVectorCompareMethod: ETcVnVectorCompareMethod:=TCVN_VCM_ELEMENTWISE;
 	
 //Create Structuring element for the Closing operation
 ipStructuringElement: ITcVnImage;
@@ -55,22 +70,35 @@ eOperator: ETcVnMorphologicalOperator:=TCVN_MO_CLOSING;
 ipContourList: 	ITCVnContainer;
 	ipIterator: 	ITcVnForwardIterator;
 	ipContour:		ITcVnContainer;
-	fArea:				LREAL;
-	fCurrentArea: LREAL:=5000;
+	fArea:	LREAL:=50000;
+	fCurrentArea: LREAL;
 	antalKonturer: ULINT;	
 		aCenter:		TcVnPoint2_LREAL;
 
 //Draw
 	aColorRed	: TcVnVector4_LREAL:= [255,0,0,0];
 	aColorBlue	: TcVnVector4_LREAL:= [0,0,255,0];	
-
-	nisse: INT;
 	sArea: STRING;
 	nArea: ULINT;
+	n: INT;
+
+
+aRectangle: TcVnRectangle_UDINT;
+aRectangleUt: TcVnRectangle_UDINT;
+
+aRotatedRectangle: TcVnRotatedRectangle;	
+	
+//Optionally call automatic color choice
+	bDynamicColorLimits: BOOL;
+	
+	
+	
+	
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[eState:= fbCamera.GetState();
+      <ST><![CDATA[
+eState:= fbCamera.GetState();
 
 IF eState = TCVN_CS_ERROR THEN
 	hr:= fbCamera.Reset();
@@ -88,22 +116,31 @@ ELSIF eState= TCVN_CS_ACQUIRING THEN
 
 
 	
-	
-	
 //Start watchdog to limit the time allowed for the functions below. 
 hrWD := F_VN_StartRelWatchdog(tWDStop, hr);
 
-//Filter image smooth. Otherwise there will be a lot of false circles found
+//Filter image smooth.
 	hr:= F_VN_GaussianFilter(ipImageIn, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
-	
+//hr:= F_VN_GaussianFilter(ipImageSmoothed, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
+
+
+
+//Check color range of actual image and set limits for finding of contours (Does not work very good)
+	IF bDynamicColorLimits THEN
+		SetLimitsForColorRangeDynamically();
+	END_IF		
+		
 hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr); 
 
-		hr:= F_VN_CheckColorRange(ipImageSmoothed, ipImageBinary, aColorLow, aColorHi, hr);
+			hr:= F_VN_CheckColorRange(ipImageSmoothed, ipImageBinary, aColorLow, aColorHi, hr);		
+
 			hr:= F_VN_CreateStructuringElement(ipStructuringElement,eShape, 25, 25, hr);		
 			hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, eOperator,ipStructuringElement, hr);
-			//hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
-			hr:=F_VN_FindContours(ipImageBinary, ipContourList, hr);
 
+			hr:= F_VN_CopyIntoDisplayableImage(ipImageBinary, ipImageBinaryDisp, hr);	
+
+			hr:=F_VN_FindContours(ipImageBinary, ipContourList, hr);
+			
 			hr:= F_VN_GetNumberOfElements(ipContourList,antalKonturer,hr);
 		
 		hr:= F_VN_GetForwardIterator(ipContourList, ipIterator, hr);  //Create iterator
@@ -112,22 +149,21 @@ hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr);
 		WHILE SUCCEEDED(hr) AND_THEN ipIterator.CheckIfEnd() <> S_OK DO
 			hr:= F_VN_GetContainer(ipIterator, ipContour, hr);
 			hr:= F_VN_IncrementIterator(ipIterator, hr);
-
- 			
-
+	
 			//Sort out only large elements
-			hr:= F_VN_ContourArea(ipContour, fArea, hr);
-				IF fArea > fCurrentArea THEN
-					nisse:=nisse+1;
-					nArea:=LREAL_TO_ULINT(fArea);
+			hr:= F_VN_ContourArea(ipContour, fCurrentArea, hr);
+				IF fCurrentArea > fArea THEN
+				
+					nArea:=LREAL_TO_ULINT(fCurrentArea);
 					
 					sArea:=CONCAT(CONCAT('Area: ',ULINT_TO_STRING(nArea)),' pixels');
 								hr:= F_VN_DrawContours(ipContour, -1, ipImageIn, aColorRed, 3, hr);
 										hr:= F_VN_ContourCenterOfMass(ipContour, aCenter, hr);
-										hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(aCenter[0])-400,LREAL_TO_UDINT(aCenter[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 4, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
-										//LREAL_TO_STRING(fArea)
+											hr:= F_VN_DrawPointExp(REAL_TO_UDINT(aCenter[0]),REAL_TO_UDINT(aCenter[1]), ipImageIn,1,aColorBlue,10,2,1,hr);
+								//		hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(aCenter[0])-400,LREAL_TO_UDINT(aCenter[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 3, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
+						
 				END_IF
-
+		hr:= F_VN_CopyIntoDisplayableImage(ipImageIn, ipImageInDisp, hr); 		
 
 				
 		END_WHILE
@@ -135,11 +171,54 @@ hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr);
 //Stop watchdog to limit the time allowed for the functions above. 
 hrWD := F_VN_StopWatchdog(hrWD, nFunctionsMonitored => nFunctionsMonitored, nFractionProcessed => nFractionProcessed, tRest => tRest);
 
-hr:= F_VN_CopyIntoDisplayableImage(ipImageBinary, ipImageBinaryDisp, hr);
-	hr:= F_VN_CopyIntoDisplayableImage(ipImageIn, ipImageInDisp, hr); 
+
+
 
 END_IF
-END_IF]]></ST>
+END_IF
+
+//Anteckningar
+//F_VN_SplitImageChannels
+//F_VN_SetRoi
+//F_VN_ResetRoi
+
+
+]]></ST>
     </Implementation>
+    <Method Name="SetLimitsForColorRangeDynamically" Id="{e8e2e1ec-d433-4f11-8b42-3094735696b1}">
+      <Declaration><![CDATA[METHOD SetLimitsForColorRangeDynamically : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+		F_VN_SetRoi(480,410, 470, 440, ipImageSmoothed, hr);	
+
+		//Split into three color channels
+		hr:=F_VN_SplitImageChannels(ipImageSmoothed, pDestImages:= ADR(pDestImages),nArraySize:=4,hr,nImageChannels=>nImageChannels);
+		IF SUCCEEDED(hr) AND pDestImages[0]<>0 THEN
+			FOR n:= 0 TO 2 DO
+			hr:= F_VN_CopyIntoDisplayableImage(pDestImages[n], pDestImagesDisp[n], hr); 
+			END_FOR
+		END_IF
+		
+		IF SUCCEEDED(hr) AND pDestImages[0]<>0 THEN
+			FOR n:= 0 TO 2 DO
+		hr:=F_VN_MaxPixelValueExp(pDestImages[n],aMaxValue[n],aPosition,ipMask:=0, eVectorCompareMethod,hr);
+		hr:=F_VN_MinPixelValueExp(pDestImages[n],aMinValue[n],aPosition,ipMask:=0, eVectorCompareMethod,hr);
+
+		
+			aColorHi[n]:=aMaxValue[n][0];
+			aColorLow[n]:=aMinValue[n][0];
+
+		
+			END_FOR
+		END_IF
+		
+		hr:=F_VN_ResetRoi(ipImageSmoothed,hr);
+
+		]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>

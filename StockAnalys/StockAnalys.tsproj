@@ -1128,7 +1128,7 @@
 	</ImageDatas>
 	<Project ProjectGUID="{364E33FB-CD9A-4EBA-AF11-15C1EC22D7B3}" TargetNetId="10.200.238.14.1.1" Target64Bit="true" ShowHideConfigurations="#x6">
 		<System>
-			<Settings MaxCpus="8" NonWinCpus="4" RouterMemory="1073741824">
+			<Settings MaxCpus="8" NonWinCpus="5" RouterMemory="1073741824">
 				<Cpu/>
 				<Cpu CpuId="1"/>
 				<Cpu CpuId="2"/>
@@ -1145,7 +1145,7 @@
 				</Target>
 			</Licenses>
 			<Tasks>
-				<Task Id="3" Priority="20" CycleTime="1500000" AmsPort="350" ExceedWarning="2" WatchdogStackCapacity="10" AdtTasks="true">
+				<Task Id="3" Priority="20" CycleTime="1500000" AmsPort="350" Affinity="#x00000008" ExceedWarning="2" WatchdogStackCapacity="10" AdtTasks="true">
 					<Name>PlcTask</Name>
 				</Task>
 				<Task Id="4" Priority="5" CycleTime="100000" AmsPort="351" Affinity="#x00000001" AdtTasks="true">
