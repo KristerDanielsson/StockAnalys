@@ -18,5 +18,9 @@ FindContoursByColour(hr:=hr, fbCamera:=fbCamera, eState:=eState);
 
 ]]></ST>
     </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="3" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
   </POU>
 </TcPlcObject>

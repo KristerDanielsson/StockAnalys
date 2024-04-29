@@ -56,7 +56,8 @@ VAR
 //Draw
 	aColorRed	: TcVnVector4_LREAL:= [255,0,0,0];
 	aColorBlue	: TcVnVector4_LREAL:= [0,0,255,0];	
-
+	nArea: ULINT;
+		sArea: STRING;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -108,6 +109,13 @@ IF SUCCEEDED(hr) AND nCircles>0 THEN
 		F_VN_GetAt_TcVnVector3_REAL(ipCircles,currentCircle, iCircle,hr);  
 		hr:= F_VN_DrawCircle(REAL_TO_UDINT(currentCircle[0]),REAL_TO_UDINT(currentCircle[1]), REAL_TO_UDINT(currentCircle[2]), ipImageIn,aColorRed,2, hr);
 		hr:= F_VN_DrawPointExp(REAL_TO_UDINT(currentCircle[0]),REAL_TO_UDINT(currentCircle[1]), ipImageIn,1,aColorBlue,10,2,1,hr);
+		
+			nArea:=LREAL_TO_ULINT(PI*EXPT(currentCircle[2],2));
+					
+					sArea:=CONCAT(CONCAT('Area: ',ULINT_TO_STRING(nArea)),' pixels');
+					hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(currentCircle[0])-400,LREAL_TO_UDINT(currentCircle[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 3, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
+						
+		
 		hr:= F_VN_IncrementIterator(ipIteratorCircles,hr);
 	END_FOR
 END_IF				
@@ -141,5 +149,13 @@ END_VAR
 hr:= F_VN_CopyIntoDisplayableImage(ipImageResultWithEdges, ipImageResultWithEdgesDisp, hr);  //saädfkaöläsfaf]]></ST>
       </Implementation>
     </Method>
+    <LineIds Name="Hough_1">
+      <LineId Id="3" Count="70" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="Hough_1.Canny">
+      <LineId Id="3" Count="1" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
   </POU>
 </TcPlcObject>

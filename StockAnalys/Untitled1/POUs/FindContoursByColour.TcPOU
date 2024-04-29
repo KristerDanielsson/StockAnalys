@@ -15,7 +15,7 @@ VAR
 
 //Images for realtime work
 	ipImageIn: ITcVnImage;
-	ipImageGrey: ITcVnImage;
+	//ipImageGrey: ITcVnImage;
 	ipImageBinary: ITcVnImage;
 
 //Region Of Interest
@@ -52,7 +52,7 @@ aPosition: TcVnPoint2_DINT;
 	
 //Displayable images (for ADS Image watch and TwinCAT HMI
 	ipImageInDisp: ITcVnDisplayableImage;
-	ipImageGreyDisp:	ITcVnDisplayableImage;
+	//ipImageGreyDisp:	ITcVnDisplayableImage;
 	ipImageBinaryDisp: ITcVnDisplayableImage;
 	
 //Colourlimits Upper/Lower RGB-values
@@ -63,6 +63,7 @@ aPosition: TcVnPoint2_DINT;
 //Create Structuring element for the Closing operation
 ipStructuringElement: ITcVnImage;
 eShape: ETcVnStructuringElementShape :=TCVN_SES_RECTANGLE;
+
 
 eOperator: ETcVnMorphologicalOperator:=TCVN_MO_CLOSING;
 
@@ -81,12 +82,13 @@ ipContourList: 	ITCVnContainer;
 	sArea: STRING;
 	nArea: ULINT;
 	n: INT;
+	
+	stEllipse: TcVnRotatedRectangle;
 
-
+//HMI
 aRectangle: TcVnRectangle_UDINT;
-aRectangleUt: TcVnRectangle_UDINT;
+aRotatedRectangle: TcVnRotatedRectangle;
 
-aRotatedRectangle: TcVnRotatedRectangle;	
 	
 //Optionally call automatic color choice
 	bDynamicColorLimits: BOOL;
@@ -94,6 +96,7 @@ aRotatedRectangle: TcVnRotatedRectangle;
 	
 	
 	
+	stImageInfo: TcVnImageInfo;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -122,20 +125,27 @@ hrWD := F_VN_StartRelWatchdog(tWDStop, hr);
 //Filter image smooth.
 	hr:= F_VN_GaussianFilter(ipImageIn, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
 //hr:= F_VN_GaussianFilter(ipImageSmoothed, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
+   
+	hr:=F_VN_GetImageInfo(ipImageIn,stImageInfo, hr);
 
-
-
-//Check color range of actual image and set limits for finding of contours (Does not work very good)
+//Check color range of actual image and set limits for finding of contours (Does not work very well)
 	IF bDynamicColorLimits THEN
 		SetLimitsForColorRangeDynamically();
-	END_IF		
-		
-hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr); 
+	END_IF
 
+hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr); 
+			hr:= F_VN_ConvertColorSpace(ipImageSmoothed,ipImageSmoothed,TCVN_CST_RGB_TO_HSV, hr);
 			hr:= F_VN_CheckColorRange(ipImageSmoothed, ipImageBinary, aColorLow, aColorHi, hr);		
 
-			hr:= F_VN_CreateStructuringElement(ipStructuringElement,eShape, 25, 25, hr);		
-			hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, eOperator,ipStructuringElement, hr);
+			hr:= F_VN_CreateStructuringElement(ipStructuringElement,eShape, 25, 25, hr);	
+	
+		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
+		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
+		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
+		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, eOperator,ipStructuringElement, hr);
+		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_DILATION,ipStructuringElement, hr);
+		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_DILATION,ipStructuringElement, hr);
+		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_DILATION,ipStructuringElement, hr);
 
 			hr:= F_VN_CopyIntoDisplayableImage(ipImageBinary, ipImageBinaryDisp, hr);	
 
@@ -160,13 +170,17 @@ hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr);
 								hr:= F_VN_DrawContours(ipContour, -1, ipImageIn, aColorRed, 3, hr);
 										hr:= F_VN_ContourCenterOfMass(ipContour, aCenter, hr);
 											hr:= F_VN_DrawPointExp(REAL_TO_UDINT(aCenter[0]),REAL_TO_UDINT(aCenter[1]), ipImageIn,1,aColorBlue,10,2,1,hr);
-								//		hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(aCenter[0])-400,LREAL_TO_UDINT(aCenter[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 3, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
-						
+								hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(aCenter[0])-400,LREAL_TO_UDINT(aCenter[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 3, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
+					hr:=F_VN_FitEllipse(ipContour,stEllipse, hr);	
+					hr:=F_VN_DrawEllipse( stEllipse,ipImageIn, aColorBlue, 3, hr);
+
 				END_IF
-		hr:= F_VN_CopyIntoDisplayableImage(ipImageIn, ipImageInDisp, hr); 		
+	
 
 				
 		END_WHILE
+		
+				hr:= F_VN_CopyIntoDisplayableImage(ipImageIn, ipImageInDisp, hr); 	
 				
 //Stop watchdog to limit the time allowed for the functions above. 
 hrWD := F_VN_StopWatchdog(hrWD, nFunctionsMonitored => nFunctionsMonitored, nFractionProcessed => nFractionProcessed, tRest => tRest);
@@ -220,5 +234,17 @@ END_VAR
 		]]></ST>
       </Implementation>
     </Method>
+    <LineIds Name="FindContoursByColour">
+      <LineId Id="3" Count="25" />
+      <LineId Id="196" Count="0" />
+      <LineId Id="195" Count="0" />
+      <LineId Id="29" Count="44" />
+      <LineId Id="75" Count="23" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FindContoursByColour.SetLimitsForColorRangeDynamically">
+      <LineId Id="3" Count="25" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
   </POU>
 </TcPlcObject>
