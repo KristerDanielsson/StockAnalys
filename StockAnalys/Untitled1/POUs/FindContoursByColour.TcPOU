@@ -99,6 +99,7 @@ aRotatedRectangle: TcVnRotatedRectangle;
 	
 	stImageInfo: TcVnImageInfo;
 	nAreaOfFittedEllipse: LREAL;
+	sAreaOfFittedEllipse: STRING;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -187,9 +188,11 @@ hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr);
 										hr:= F_VN_DrawPointExp(LREAL_TO_UDINT(aCenter[0]),LREAL_TO_UDINT(aCenter[1]), ipImageIn,1,aColorBlue,10,2,1,hr);
 								hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(aCenter[0])-400,LREAL_TO_UDINT(aCenter[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 3, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
 					hr:=F_VN_FitEllipse(ipContour,stEllipse, hr);
-					nAreaOfFittedEllipse:=stEllipse.stSize.fHeight*stEllipse.stSize.fWidth*PI;
+					nAreaOfFittedEllipse:=stEllipse.stSize.fHeight/2*stEllipse.stSize.fWidth*PI/2;
+					sAreaOfFittedEllipse:=LREAL_TO_STRING(TRUNC(nAreaOfFittedEllipse));
 					hr:=F_VN_DrawEllipse( stEllipse,ipImageIn, aColorBlue, 3, hr);
-					
+				
+					hr:= F_VN_PutTextExp(sAreaOfFittedEllipse,ipImageIn, 500,400, ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 3, aColorBlue,3,TCVN_LT_8_CONNECTED,FALSE, hr);
 				END_IF
 	
 
@@ -271,7 +274,9 @@ END_VAR
       <LineId Id="43" Count="0" />
       <LineId Id="46" Count="26" />
       <LineId Id="429" Count="0" />
+      <LineId Id="431" Count="0" />
       <LineId Id="73" Count="0" />
+      <LineId Id="432" Count="0" />
       <LineId Id="75" Count="23" />
       <LineId Id="2" Count="0" />
     </LineIds>
