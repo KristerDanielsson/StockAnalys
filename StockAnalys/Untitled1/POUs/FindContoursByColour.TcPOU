@@ -40,7 +40,7 @@ stRoi: TcVnRectangle_UDINT;
 	
 //Split image channels	
 pDestImages: ARRAY[0..3] OF ITcVnImage;
-pDestImagesDisp:ARRAY[0..3] OF ITcVnDisplayableImage;
+//pDestImagesDisp:ARRAY[0..3] OF ITcVnDisplayableImage;
 nArraySize: UINT;
 	
 //Find value range
@@ -55,9 +55,9 @@ aPosition: TcVnPoint2_DINT;
 	//ipImageGreyDisp:	ITcVnDisplayableImage;
 	ipImageBinaryDisp: ITcVnDisplayableImage;
 	
-//Colourlimits Upper/Lower RGB-values
-	aColorHi	: TcVnVector4_LREAL:= [255,200,110];
-	aColorLow	: TcVnVector4_LREAL:= [200,0,0];
+//Colourlimits Upper/Lower HSV-values
+	aColorHi	: TcVnVector4_LREAL:= [44,255,255];
+	aColorLow	: TcVnVector4_LREAL:= [24,130,130];
 	eVectorCompareMethod: ETcVnVectorCompareMethod:=TCVN_VCM_ELEMENTWISE;
 	
 //Create Structuring element for the Closing operation
@@ -71,7 +71,7 @@ eOperator: ETcVnMorphologicalOperator:=TCVN_MO_CLOSING;
 ipContourList: 	ITCVnContainer;
 	ipIterator: 	ITcVnForwardIterator;
 	ipContour:		ITcVnContainer;
-	fArea:	LREAL:=50000;
+	fSmallestLogArea:	LREAL:=300000;
 	fCurrentArea: LREAL;
 	antalKonturer: ULINT;	
 		aCenter:		TcVnPoint2_LREAL;
@@ -79,6 +79,7 @@ ipContourList: 	ITCVnContainer;
 //Draw
 	aColorRed	: TcVnVector4_LREAL:= [255,0,0,0];
 	aColorBlue	: TcVnVector4_LREAL:= [0,0,255,0];	
+	aColorBlack: TcVnVector4_LREAL:= [0,0,0,0];	
 	sArea: STRING;
 	nArea: ULINT;
 	n: INT;
@@ -97,6 +98,7 @@ aRotatedRectangle: TcVnRotatedRectangle;
 	
 	
 	stImageInfo: TcVnImageInfo;
+	nAreaOfFittedEllipse: LREAL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -124,7 +126,7 @@ hrWD := F_VN_StartRelWatchdog(tWDStop, hr);
 
 //Filter image smooth.
 	hr:= F_VN_GaussianFilter(ipImageIn, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
-//hr:= F_VN_GaussianFilter(ipImageSmoothed, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
+hr:= F_VN_GaussianFilter(ipImageSmoothed, ipImageSmoothed, nFilterWidth, nFilterHeight, hr);
    
 	hr:=F_VN_GetImageInfo(ipImageIn,stImageInfo, hr);
 
@@ -134,18 +136,31 @@ hrWD := F_VN_StartRelWatchdog(tWDStop, hr);
 	END_IF
 
 hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr); 
-			hr:= F_VN_ConvertColorSpace(ipImageSmoothed,ipImageSmoothed,TCVN_CST_RGB_TO_HSV, hr);
+			hr:= F_VN_ConvertColorSpace(ipImageSmoothed,ipImageSmoothed,TCVN_CST_RGB_TO_HSV_FULL, hr);
 			hr:= F_VN_CheckColorRange(ipImageSmoothed, ipImageBinary, aColorLow, aColorHi, hr);		
 
-			hr:= F_VN_CreateStructuringElement(ipStructuringElement,eShape, 25, 25, hr);	
-	
-		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
-		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
-		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
+			hr := F_VN_FillHoles(ipSrcImage:=ipImageBinary,ipDestImage:=ipImageBinary,hrPrev:=hr);   
+
+			//Morphological operations - to clean binary image before finding contours in it			
+			hr:= F_VN_CreateStructuringElement(ipStructuringElement,eShape, 20, 20, hr);	
+			hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_EROSION,ipStructuringElement, hr);
+
+			hr:=F_VN_FindContours(ipImageBinary, ipContourList, hr);
+			hr:= F_VN_GetForwardIterator(ipContourList, ipIterator, hr);  //Create iterator
+			//Loop through every contour with the iterator
+			WHILE SUCCEEDED(hr) AND_THEN ipIterator.CheckIfEnd() <> S_OK DO
+				hr:= F_VN_GetContainer(ipIterator, ipContour, hr);
+				hr:= F_VN_IncrementIterator(ipIterator, hr);
+		
+				//Clean binary image and get rid of smaller found areas (smaller that the wodden log)
+				hr:= F_VN_ContourArea(ipContour, fCurrentArea, hr);
+					IF fCurrentArea < fSmallestLogArea THEN		
+						hr := F_VN_FillContours(ipContour,-1,ipImageBinary,aColorBlack,hr);
+						
+					END_IF
+			END_WHILE
 		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, eOperator,ipStructuringElement, hr);
-		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_DILATION,ipStructuringElement, hr);
-		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_DILATION,ipStructuringElement, hr);
-		//	hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_DILATION,ipStructuringElement, hr);
+			hr:= F_VN_MorphologicalOperator(ipImageBinary, ipImageBinary, TCVN_MO_DILATION,ipStructuringElement, hr);
 
 			hr:= F_VN_CopyIntoDisplayableImage(ipImageBinary, ipImageBinaryDisp, hr);	
 
@@ -153,27 +168,28 @@ hr:= F_VN_CopyIntoDisplayableImage(ipImageSmoothed, ipImageSmoothedDisp, hr);
 			
 			hr:= F_VN_GetNumberOfElements(ipContourList,antalKonturer,hr);
 		
-		hr:= F_VN_GetForwardIterator(ipContourList, ipIterator, hr);  //Create iterator
-		
+
+		hr:= F_VN_SetIteratorToBegin(ipIterator,hr);
 		//Loop through every contour with the iterator
 		WHILE SUCCEEDED(hr) AND_THEN ipIterator.CheckIfEnd() <> S_OK DO
 			hr:= F_VN_GetContainer(ipIterator, ipContour, hr);
 			hr:= F_VN_IncrementIterator(ipIterator, hr);
 	
-			//Sort out only large elements
+			//Sort out only large elements (should be only one left at this stage)
 			hr:= F_VN_ContourArea(ipContour, fCurrentArea, hr);
-				IF fCurrentArea > fArea THEN
+				IF fCurrentArea > fSmallestLogArea THEN
 				
 					nArea:=LREAL_TO_ULINT(fCurrentArea);
 					
 					sArea:=CONCAT(CONCAT('Area: ',ULINT_TO_STRING(nArea)),' pixels');
 								hr:= F_VN_DrawContours(ipContour, -1, ipImageIn, aColorRed, 3, hr);
 										hr:= F_VN_ContourCenterOfMass(ipContour, aCenter, hr);
-											hr:= F_VN_DrawPointExp(REAL_TO_UDINT(aCenter[0]),REAL_TO_UDINT(aCenter[1]), ipImageIn,1,aColorBlue,10,2,1,hr);
+										hr:= F_VN_DrawPointExp(LREAL_TO_UDINT(aCenter[0]),LREAL_TO_UDINT(aCenter[1]), ipImageIn,1,aColorBlue,10,2,1,hr);
 								hr:= F_VN_PutTextExp(sArea,ipImageIn, LREAL_TO_UDINT(aCenter[0])-400,LREAL_TO_UDINT(aCenter[1]), ETcVnFontType.TCVN_FT_HERSHEY_PLAIN, 3, aColorRed,3,TCVN_LT_8_CONNECTED,FALSE, hr);
-					hr:=F_VN_FitEllipse(ipContour,stEllipse, hr);	
+					hr:=F_VN_FitEllipse(ipContour,stEllipse, hr);
+					nAreaOfFittedEllipse:=stEllipse.stSize.fHeight*stEllipse.stSize.fWidth*PI;
 					hr:=F_VN_DrawEllipse( stEllipse,ipImageIn, aColorBlue, 3, hr);
-
+					
 				END_IF
 	
 
@@ -206,30 +222,30 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[
-		F_VN_SetRoi(480,410, 470, 440, ipImageSmoothed, hr);	
+//		F_VN_SetRoi(480,410, 470, 440, ipImageSmoothed, hr);	
 
-		//Split into three color channels
-		hr:=F_VN_SplitImageChannels(ipImageSmoothed, pDestImages:= ADR(pDestImages),nArraySize:=4,hr,nImageChannels=>nImageChannels);
-		IF SUCCEEDED(hr) AND pDestImages[0]<>0 THEN
-			FOR n:= 0 TO 2 DO
-			hr:= F_VN_CopyIntoDisplayableImage(pDestImages[n], pDestImagesDisp[n], hr); 
-			END_FOR
-		END_IF
+//		//Split into three color channels
+//		hr:=F_VN_SplitImageChannels(ipImageSmoothed, pDestImages:= ADR(pDestImages),nArraySize:=4,hr,nImageChannels=>nImageChannels);
+//		IF SUCCEEDED(hr) AND pDestImages[0]<>0 THEN
+//			FOR n:= 0 TO 2 DO
+//			hr:= F_VN_CopyIntoDisplayableImage(pDestImages[n], pDestImagesDisp[n], hr); 
+//			END_FOR
+//		END_IF
 		
-		IF SUCCEEDED(hr) AND pDestImages[0]<>0 THEN
-			FOR n:= 0 TO 2 DO
-		hr:=F_VN_MaxPixelValueExp(pDestImages[n],aMaxValue[n],aPosition,ipMask:=0, eVectorCompareMethod,hr);
-		hr:=F_VN_MinPixelValueExp(pDestImages[n],aMinValue[n],aPosition,ipMask:=0, eVectorCompareMethod,hr);
-
-		
-			aColorHi[n]:=aMaxValue[n][0];
-			aColorLow[n]:=aMinValue[n][0];
+//		IF SUCCEEDED(hr) AND pDestImages[0]<>0 THEN
+//			FOR n:= 0 TO 2 DO
+//		hr:=F_VN_MaxPixelValueExp(pDestImages[n],aMaxValue[n],aPosition,ipMask:=0, eVectorCompareMethod,hr);
+//		hr:=F_VN_MinPixelValueExp(pDestImages[n],aMinValue[n],aPosition,ipMask:=0, eVectorCompareMethod,hr);
 
 		
-			END_FOR
-		END_IF
+//			aColorHi[n]:=aMaxValue[n][0];
+//			aColorLow[n]:=aMinValue[n][0];
+
 		
-		hr:=F_VN_ResetRoi(ipImageSmoothed,hr);
+//			END_FOR
+//		END_IF
+		
+//		hr:=F_VN_ResetRoi(ipImageSmoothed,hr);
 
 		]]></ST>
       </Implementation>
@@ -238,7 +254,24 @@ END_VAR
       <LineId Id="3" Count="25" />
       <LineId Id="196" Count="0" />
       <LineId Id="195" Count="0" />
-      <LineId Id="29" Count="44" />
+      <LineId Id="29" Count="7" />
+      <LineId Id="407" Count="0" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="404" Count="0" />
+      <LineId Id="406" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="409" Count="2" />
+      <LineId Id="413" Count="6" />
+      <LineId Id="412" Count="0" />
+      <LineId Id="408" Count="0" />
+      <LineId Id="421" Count="0" />
+      <LineId Id="424" Count="0" />
+      <LineId Id="423" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="46" Count="26" />
+      <LineId Id="429" Count="0" />
+      <LineId Id="73" Count="0" />
       <LineId Id="75" Count="23" />
       <LineId Id="2" Count="0" />
     </LineIds>
